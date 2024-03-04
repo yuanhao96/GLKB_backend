@@ -1,0 +1,47 @@
+{
+    "search": {
+        "/article-result": "CALL db.index.fulltext.queryNodes(\"article_Title\", \"{}\") YIELD node, score RETURN node.PubmedID, score ORDER BY score DESC LIMIT {}",
+        "/article-result2": "CALL db.index.fulltext.queryNodes(\"article_Title\", \"{}\") YIELD node, score WHERE node.PubmedID IN {} RETURN node.PubmedID, score",
+        "/ent-result": "CALL db.index.fulltext.queryNodes(\"vocabulary_Names\", \"{}\") YIELD node, score WITH node as n, score LIMIT 100 MATCH (n)-[:alias_of]->(v) WITH DISTINCT v, score RETURN ID(v), v.`Element ID`, v.Name, v.n_citation, score ORDER BY CASE WHEN v.n_citation IS NOT NULL THEN v.n_citation ELSE 0 END DESC",
+        "/ent-article": "MATCH (a:Article)-[r:Contain_vocab]->(v:Vocabulary) WHERE v.`Element ID` IN {} AND NOT r.Source IN ['UP', 'ENSEMBL', 'GWAS'] WITH a, COUNT(DISTINCT v) AS hits RETURN a.PubmedID, hits, a.n_citation, a.Pubdate, a.Title ORDER BY hits DESC, CASE WHEN a.n_citation IS NOT NULL THEN a.n_citation ELSE 0 END DESC, a.Pubdate DESC LIMIT {}",
+        "/ent-article2": "MATCH (a:Article)-[:Contain_vocab]->(:Vocabulary)-[:Curated_relationship]-(v) WHERE (v:GO OR v:Pathway) AND v.`Element ID` IN {} WITH a, COUNT(DISTINCT v) AS hits RETURN a.PubmedID, hits, a.n_citation, a.Pubdate ORDER BY hits DESC, CASE WHEN a.n_citation IS NOT NULL THEN a.n_citation ELSE 0 END DESC, a.Pubdate DESC LIMIT 100000",
+        "/ent": "MATCH (n)-[:alias_of]->(v:Vocabulary) WHERE v.`Element ID`=\"{}\" WITH v, COLLECT(n) AS alias RETURN v, alias",
+        "/unmapped_ent": "MATCH (v:Unmapped_entity) WHERE v.`Entity ID`='{}' RETURN v",
+        "/node": "MATCH (n) WHERE ID(n)={} RETURN n",
+        "/expand_single_vocab": "MATCH (v:Vocabulary)-[r:Curated_relationship|Hierarchical_structure|Semantic_relationship]->(v2:Vocabulary) WHERE id(v)={} WITH DISTINCT v2, r.neg_log_importance AS score RETURN ID(v2) ORDER BY score LIMIT 3"
+    },
+    "pmid2id": {
+        "article": "MATCH (a:Article) WHERE a.PubmedID=\"{}\" RETURN a",
+        "articles": "MATCH (a:Article) WHERE a.PubmedID IN {} RETURN a",
+        "vocab": "MATCH (a:Article)-[r:Contain_vocab]->(v:Vocabulary) WHERE a.PubmedID=\"{}\" RETURN DISTINCT r, v",
+        "vocabs": "MATCH (a:Article)-[r:Contain_vocab]->(v:Vocabulary) WHERE a.PubmedID IN {} RETURN DISTINCT r, v",
+        "vocab_and_unmapped": "MATCH (a:Article)-[r:Contain_vocab]->(v) WHERE a.PubmedID=\"{}\" RETURN r, v",
+        "event": "MATCH (n:Unmapped_entity) WHERE n.is_event=\"True\" AND n.Source=\"{}\" RETURN n",
+        "events": "MATCH (n:Unmapped_entity) WHERE n.is_event=\"True\" AND n.Source IN {} RETURN n"
+    },
+    "node2graph": {
+        "general": "WITH {} AS hids, {} AS tids MATCH (a)-[r]-(b) WHERE ID(a) IN hids AND ID(b) IN tids RETURN a, r, b LIMIT 500000",
+        "general_directed": "WITH {} AS hids, {} AS tids MATCH (a)-[r]->(b) WHERE ID(a) IN hids AND ID(b) IN tids RETURN a, r, b LIMIT 500000",
+        "general_single_node": "MATCH (a)-[r]-(b) WHERE ID(a)={} AND ID(b)={} RETURN a, r, b LIMIT 500000",
+        "general_single_edge": "MATCH (a)-[r]->(b) WHERE ID(r)={} RETURN a, r, b LIMIT 500000",
+        "rel_type": "MATCH (a)-[r{}]-(b) WHERE ID(a) IN {} AND ID(b) IN {} RETURN a, r, b LIMIT 500000",
+        "rel_type_directed": "MATCH (a)-[r{}]->(b) WHERE ID(a) IN {} AND ID(b) IN {} RETURN a, r, b LIMIT 500000",
+        "co_occur": "MATCH (a:Vocabulary)-[r:co_occur]->(b:Vocabulary) WHERE ID(a) IN {} AND ID(b) IN {} AND \"{}\" IN r.Source RETURN a, r, b",
+        "co_occur_list": "MATCH (a:Vocabulary)-[r:co_occur]->(b:Vocabulary) WHERE ID(a) IN {} AND ID(b) IN {} AND ANY(x IN r.Source WHERE x IN {}) RETURN a, r, b",
+        "co_occur_graph": "MATCH (v1:Vocabulary)<-[:Contain_vocab]-(a:Article)-[:Contain_vocab]->(v2:Vocabulary) WHERE ID(v1) IN {} AND ID(v2) IN {} AND ID(v1)<ID(v2) RETURN v1, v2, count(a)",
+        "events": "WITH {} AS hids MATCH (a)<-[:Semantic_relationship]-(b:Unmapped_entity) WHERE ID(a) IN hids AND b.is_event='True' RETURN DISTINCT b LIMIT 100",
+        "events_type": "WITH {} AS hids MATCH (a)<-[:Semantic_relationship]-(b:Unmapped_entity) WHERE ID(a) IN hids AND b.is_event='True' AND b.Type='{}' RETURN DISTINCT b LIMIT 100",
+        "event_descendants": "MATCH (n:Unmapped_entity) WHERE id(n)={} OPTIONAL MATCH (n)-[:Semantic_relationship]->(v:Unmapped_entity) OPTIONAL MATCH (a)-[:Semantic_relationship]->(v2:Vocabulary) WHERE ID(a)=ID(n) OR ID(a)=ID(v) RETURN COLLECT(n) + COLLECT(v) + COLLECT(v2) LIMIT 1",
+        "ontology": "MATCH p=(v:Vocabulary)<-[:Hierarchical_structure*..10]-(v2:Vocabulary) WHERE ID(v) IN {} RETURN v2",
+        "vocab_article": "match (a:Article)-[:Contain_vocab]->(v) where id(v) in {} and a.Pubdate>={} and a.Pubdate<{} with a as articles match (articles)-[:Contain_vocab]->(v:`{}`) with distinct articles, v return articles.PubmedID, articles.Pubdate, articles.n_citation, v.Name, v.`Element ID`, v.n_citation, labels(v)"
+    },
+    "article_info": {
+        "citation": "MATCH (a:Article)-[:cite]->(b:Article) WHERE b.PubmedID=\"{}\" RETURN a",
+        "citations": "MATCH (a:Article)-[:cite]->(b:Article) WHERE b.PubmedID IN {} RETURN a"
+    },
+    "projection": {
+        "neighborhood": "MATCH (source:Vocabulary)-[r:Semantic_relationship]-(target:Vocabulary) WHERE id(target) IN {} AND apoc.node.degree(source)<=250000 AND NOT source:Organisms WITH source ORDER BY r.Frequency DESC LIMIT 100 WITH collect(distinct id(source)) + {} AS target MATCH p=(v1)-[r:Semantic_relationship]->(v2) WHERE id(v1) IN target AND id(v2) IN target with v1, v2, r.Frequency AS Frequency limit 100000 WITH gds.alpha.graph.project('{}', v1, v2, {{relationshipProperties: {{Frequency:Frequency}} }}) AS g RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels",
+        "louvain": "CALL gds.louvain.stream('{}', {{ relationshipWeightProperty: 'Frequency' }}) YIELD nodeId, communityId, intermediateCommunityIds WITH gds.util.asNode(nodeId) AS n, communityId RETURN ID(n), n.Name, LABELS(n), n.n_citation, apoc.node.degree(n), communityId",
+        "delete": "CALL gds.graph.drop('{}')"
+    }
+}
